@@ -177,9 +177,9 @@ def main():
         for index, row in commit_list.iterrows():
             try:
                 commitID = row["commit ID"]
+                CWEID = row["CWE ID"]
                 if (commitID == "" or commitID == "nan"):
                     continue
-                CWEID = row["CWE ID"]
                 if (CWEID == ""):
                     error_writer.writerow(["",commitID, "no CWE id"])
                     continue
