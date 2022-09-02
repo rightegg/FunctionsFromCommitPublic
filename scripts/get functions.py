@@ -102,7 +102,7 @@ def getDiffFromCommit(sha, tries=0): #returns 0 for success, -1 for failure
                 }
             ).json()
             if ('message' in searchquery):
-                if (searchquery['message'] == 'API rate limit exceeded for '' (But here\'s the good news: Authenticated requests get a higher rate limit. Check out the documentation for more details.)'):
+                if (searchquery['message'] == 'API rate limit exceeded for 'ENTER IP HERE' (But here\'s the good news: Authenticated requests get a higher rate limit. Check out the documentation for more details.)'):
                     ratelimited = True
                     print("rate limited, waiting 10 minutes")
                     for elapsed in range(0, 600, 1):
