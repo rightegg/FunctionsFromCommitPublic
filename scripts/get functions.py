@@ -26,6 +26,7 @@ import pandas
 
 # find all the line numbers that the functions begins
 def get_line_numbers(filename):
+    print("getting line numbers for " + filename)
     pos = filename.rfind('.') #position of last period
     lang_type = filename[pos+1:] #language of file
     if lang_type in ["C","cc","cxx","cpp","c++","Cpp"]:
@@ -33,6 +34,7 @@ def get_line_numbers(filename):
     if (lang_type == "h"):
         lang_type = "c"
     if (lang_type != "c++" and lang_type != "c"):
+        print(lang_type)
         return [], -1
     # found = False
     #cmd = "ctags -x --c-kinds=fp " + filename + " | grep " + funcname
@@ -91,16 +93,38 @@ def getDiffFromCommit(sha, tries=0): #returns 0 for success, -1 for failure
         #get new file
         url = f"https://api.github.com/search/commits?q=" + sha
         d = Differ() #create differ
-        commit_url = requests.get(url, 
-            headers={
-                'Authorization': "" Enter GitHub Token Here
-            }
-        ).json()["items"][0]["url"]
+        ratelimited = False
+        while True:
+            searchquery = requests.get(url, 
+                headers={
+                    'Authorization': Enter Authorization Here
+                }
+            ).json()
+            if ('message' in searchquery):
+                if (searchquery['message'] == 'API rate limit exceeded for 73.140.54.71. (But here\'s the good news: Authenticated requests get a higher rate limit. Check out the documentation for more details.)'):
+                    ratelimited = True
+                    print("rate limited, waiting 10 minutes")
+                    for elapsed in range(0, 600, 1):
+                        sys.stdout.write("\r")
+                        sys.stdout.write("{:2d} seconds of 600 elapsed.".format(elapsed))
+                        sys.stdout.flush()
+                        time.sleep(1)
+                else:
+                    ratelimited = False
+            else:
+                ratelimited = False
+            
+            if (ratelimited == False):
+                break
+                
+            
+        commit_url = searchquery["items"][0]["url"]
         commit = requests.get(commit_url, 
             headers={
-                'Authorization': "" Enter GitHub Token Here
+                'Authorization': Enter Authorization Here
             }
             ).json()
+        print("HERE------------------------------------")
         old_commit_sha = commit["parents"][0]["sha"] #sha of parent
         num_changed_files = len(commit["files"]) #number of files changed in commit
         for i in range(num_changed_files):
@@ -138,6 +162,7 @@ def getDiffFromCommit(sha, tries=0): #returns 0 for success, -1 for failure
                 return -1, "429"
             else:
                 time.sleep(10)
+                print("429 error")
                 return getDiffFromCommit(sha, tries+1)
         if e.code == 404:
             print("\n not found:" + url+ "！")
@@ -149,17 +174,13 @@ def getDiffFromCommit(sha, tries=0): #returns 0 for success, -1 for failure
                 return -1, "403"
             else:
                 time.sleep(10)
+                print("403 error")
                 return getDiffFromCommit(sha, tries+1)
         raise
     except Exception as e:
-        if (tries >= 5):
-            traceback.print_exc(file=sys.stdout)
-            print("reason", e)
-            print("\n skip get_response:"+sha+ "！")
-            return -1, e
-        else:
-            time.sleep(10)
-            return getDiffFromCommit(sha, tries+1)
+        print("reason", e)
+        print("\n skip get_response:"+sha+ "！")
+            
 
 def main():
     curpath = os.path.abspath(os.curdir)
@@ -168,7 +189,7 @@ def main():
     commit_list = pandas.read_csv(os.path.join(curpath, "data/commits.csv"))
     error_output_list = open(os.path.join(curpath, "output/errorCommits.csv"), "w", encoding='UTF8')
     error_writer=csv.writer(error_output_list)
-    error_writer.writerow(['CWE ID', "commit ID", "reason"])
+    error_writer.writerow(['CWE ID', "commit ID", "filenum", "reason"])
 
     with open(os.path.join(curpath, "output/output.csv"), "w", encoding='UTF8') as output:
         writer = csv.writer(output)
@@ -177,11 +198,11 @@ def main():
         for index, row in commit_list.iterrows():
             try:
                 commitID = row["commit ID"]
-                CWEID = row["CWE ID"]
                 if (commitID == "" or commitID == "nan"):
                     continue
+                CWEID = row["CWE ID"]
                 if (CWEID == ""):
-                    error_writer.writerow(["",commitID, "no CWE id"])
+                    error_writer.writerow(["",commitID,"", "no CWE id"])
                     continue
                 result, errormsg = getDiffFromCommit(commitID)
                 if (result == 0):
@@ -197,7 +218,10 @@ def main():
                             #get function line numbers in diff
                             func_line_nums, msg = get_line_numbers(f)
                             if (msg == -1):
-                                error_writer.writerow([CWEID, commitID, "unknown language"])
+                                error_writer.writerow([CWEID, commitID, filenum, "unknown language"])
+                                print("unknown language")
+                                filenum += 1
+                                continue
                             func_line_nums.sort()
                             #get function line numbers in precommit file
                             print("oldfile lang " + lang)
@@ -205,24 +229,28 @@ def main():
                             oldfile = os.path.join(curpath, "temp_files\old_file" + str(filenum) + "." + lang)
                             old_func_line_nums, msg = get_line_numbers(oldfile)
                             if (msg == -1):
-                                error_writer.writerow([CWEID, commitID, "unknown language"])
+                                error_writer.writerow([CWEID, commitID, filenum, "unknown language"])
+                                filenum += 1
+                                continue
                             old_func_line_nums.sort()
                             print(old_func_line_nums)
                             #get function line numbers in postcommit file
                             newfile = os.path.join(curpath, "temp_files\\new_file" + str(filenum) + "." + lang)
                             new_func_line_nums, msg = get_line_numbers(newfile)
                             if (msg == -1):
-                                error_writer.writerow([CWEID, commitID, "unknown language"])
+                                error_writer.writerow([CWEID, commitID, filenum, "unknown language"])
+                                filenum += 1
+                                continue
                             new_func_line_nums.sort()
 
-                            filenum != 1
 
                             #if the number of functions between the old and new file are different
                             #some functions are added/removed instead of simply replaced
                             #which requires more work, and will be put aside for later.
                             if (len(new_func_line_nums) != len(old_func_line_nums)):
                                 log.write("commit has changed the number of functions: " + commitID + "\n")
-                                error_writer.writerow([CWEID, commitID, "changed num of functions"])
+                                error_writer.writerow([CWEID, commitID, filenum, "changed num of functions"])
+                                filenum += 1
                                 continue
 
                             #get diff line numbers
@@ -246,7 +274,8 @@ def main():
 
                             if (len(changed_funcs_lines) == 0):
                                 log.write("no functions were changed in commit: " + commitID)
-                                error_writer.writerow([CWEID, commitID, "no functions changed"])
+                                error_writer.writerow([CWEID, commitID, filenum, "no functions changed"])
+                                filenum += 1
                                 continue
 
                             #replace + and - in function
@@ -296,12 +325,13 @@ def main():
                                 writer.writerow([CWEID, commitID, func_before, func_after, edited_code])
 
                                 func_num += 1
+                            filenum += 1
                 elif (result == -1):
                     log.write("error retriving commit info for ID: " + commitID + " because of " + str(errormsg) + "\n")
-                    error_writer.writerow([CWEID, commitID, errormsg])
+                    error_writer.writerow([CWEID, commitID, "", errormsg])
             except Exception as e:
                 print(str(e))
-                error_writer.writerow([CWEID, commitID, str(e)])
+                error_writer.writerow([CWEID, commitID, "", str(e)])
     
     log.close()
 
