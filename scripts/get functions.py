@@ -23,6 +23,7 @@ from pprint import pprint
 from difflib import Differ
 from pathlib import Path
 import pandas
+import math
 
 # find all the line numbers that the functions begins
 def get_line_numbers(filename):
@@ -97,11 +98,11 @@ def getDiffFromCommit(sha, tries=0): #returns 0 for success, -1 for failure
         while True:
             searchquery = requests.get(url, 
                 headers={
-                    'Authorization': Enter Authorization Here
+                    'Authorization': ENTER AUTHORIZATION HERE
                 }
             ).json()
             if ('message' in searchquery):
-                if (searchquery['message'] == 'API rate limit exceeded for 73.140.54.71. (But here\'s the good news: Authenticated requests get a higher rate limit. Check out the documentation for more details.)'):
+                if (searchquery['message'] == 'API rate limit exceeded for '' (But here\'s the good news: Authenticated requests get a higher rate limit. Check out the documentation for more details.)'):
                     ratelimited = True
                     print("rate limited, waiting 10 minutes")
                     for elapsed in range(0, 600, 1):
@@ -121,7 +122,7 @@ def getDiffFromCommit(sha, tries=0): #returns 0 for success, -1 for failure
         commit_url = searchquery["items"][0]["url"]
         commit = requests.get(commit_url, 
             headers={
-                'Authorization': Enter Authorization Here
+                'Authorization': ENTER AUTHORIZATION HERE
             }
             ).json()
         print("HERE------------------------------------")
@@ -198,12 +199,15 @@ def main():
         for index, row in commit_list.iterrows():
             try:
                 commitID = row["commit ID"]
-                if (commitID == "" or commitID == "nan"):
+                if (commitID == "" or commitID != commitID):
                     continue
-                CWEID = row["CWE ID"]
-                if (CWEID == ""):
+                print(commitID)
+                CWEID = row["CWE ID"]      
+                if (CWEID == "" or CWEID != CWEID):
                     error_writer.writerow(["",commitID,"", "no CWE id"])
+                    print(commitID + " has no CWEID")
                     continue
+                print(CWEID)
                 result, errormsg = getDiffFromCommit(commitID)
                 if (result == 0):
                     diffdir = os.path.join(curpath, "diff_files")
