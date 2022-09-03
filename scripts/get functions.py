@@ -336,6 +336,12 @@ def main():
             except Exception as e:
                 print(str(e))
                 error_writer.writerow([CWEID, commitID, "", str(e)])
+            
+            for f in os.path.join(curpath, "temp_files"):
+                os.remove(f)
+            
+            for f in os.path.join(curpath, "diff_files")
+                os.remove(f)
     
     log.close()
 
