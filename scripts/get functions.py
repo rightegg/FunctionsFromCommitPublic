@@ -338,10 +338,12 @@ def main():
                 error_writer.writerow([CWEID, commitID, "", str(e)])
             
             for f in os.path.join(curpath, "temp_files"):
-                os.remove(f)
+                if os.path.isfile(f):
+                    os.remove(f)
             
             for f in os.path.join(curpath, "diff_files")
-                os.remove(f)
+                if os.path.isfile(f):
+                    os.remove(f)
     
     log.close()
 
